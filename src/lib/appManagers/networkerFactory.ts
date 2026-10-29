@@ -12,6 +12,7 @@ import {AppManager} from '@appManagers/manager';
 import AccountController from '@lib/accounts/accountController';
 import bytesToHex from '@helpers/bytes/bytesToHex';
 import {getEnvironment} from '@environment/utils';
+import {resumeBridgeClient} from '@lib/bridge/client';
 
 export class NetworkerFactory extends AppManager {
   private networkers: MTPNetworker[] = [];
@@ -104,6 +105,9 @@ export class NetworkerFactory extends AppManager {
   }
 
   public startAll() {
+    // * Bridge: a tab taking the account back from another browser starts the sockets again
+    resumeBridgeClient();
+
     if(this.akStopped) {
       const stoppedNetworkers = this.networkers.filter((networker) => networker.isStopped());
 

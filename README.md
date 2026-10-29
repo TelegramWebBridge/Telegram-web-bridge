@@ -34,8 +34,8 @@ git merge upstream/master        # merge, не rebase: наши коммиты �
 
 * `public/` — upstream коммитит туда собранный билд (коммиты «Build»). Содержимое нам не важно, мы собираем
   своё: бери любую сторону (`git checkout --theirs public && git add public`) и не вникай.
-* `.env` — upstream меняет `VITE_VERSION`, `VITE_BUILD`, `VITE_LANG_PACK_VERSION`. Бери его значения, но **сохрани
-  наши строки** (`VITE_BRIDGE_ORIGIN`).
+* `.env` — upstream меняет `VITE_VERSION`, `VITE_BUILD`, `VITE_LANG_PACK_VERSION`. Наших правок там нет (они в
+  `.env.local`), так что бери версию upstream целиком.
 
 После мержа:
 
@@ -59,17 +59,18 @@ https://tg.example.com/        → статика (папка со сборко�
 https://tg.example.com/api/    → 127.0.0.1:3000  (FastAPI; включая WebSocket /api/bridge/ws/...)
 ```
 
-#### 1. `.env` перед сборкой
+#### 1. `.env.local` перед сборкой
 
+Свои значения лежат в `.env.local` (не коммитится, перекрывает `.env`; шаблон — `.env.local.example`,
+`pnpm start` копирует его сам). Файл `.env` не трогаем, чтобы не плодить конфликты при мерже с upstream.
 `VITE_*` значения вшиваются в бандл на этапе сборки — поменял, значит пересобирай.
 
 | Переменная | Значение |
 |---|---|
 | `VITE_BRIDGE_ORIGIN` | **пусто** — тогда клиент ходит на тот же хост, с которого загружен (`wss://tg.example.com/api/bridge/ws/...`). Заполнять только для прямого обращения к бэку на другом origin (тогда на бэке нужен CORS) |
-| `VITE_API_ID`, `VITE_API_HASH` | уже стоят; должны совпадать с теми, что использует бэкенд |
-| `VITE_VERSION`, `VITE_BUILD`, … | оставить как есть |
+| `VITE_API_ID`, `VITE_API_HASH` | ваши credentials с my.telegram.org; должны совпадать с теми, что использует бэкенд |
 
-Токен доступа в `.env` не нужен: он передаётся в URL один раз — `https://tg.example.com/?bridgeToken=<token>` —
+Токен доступа в env не нужен: он передаётся в URL один раз — `https://tg.example.com/?bridgeToken=<token>` —
 и запоминается в `localStorage` браузера (`bridge_token`).
 
 #### 2. Сборка

@@ -159,6 +159,8 @@ export type BroadcastEvents = {
   'webpage_updated': {id: WebPage.webPage['id'], msgs: {peerId: PeerId, mid: number, isScheduled: boolean}[]},
 
   'connection_status_change': ConnectionStatusChange,
+  // * Bridge: the backend handed the account to another browser (src/lib/bridge/client.ts)
+  'bridge_taken_over': void,
   'settings_updated': {key: string, value: any, settings: StateSettings},
   'draft_updated': {peerId: PeerId, threadId?: number, monoforumThreadId?: PeerId, draft: MyDraftMessage | undefined, force?: boolean},
 

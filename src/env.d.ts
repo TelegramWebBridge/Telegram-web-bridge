@@ -16,6 +16,9 @@ interface ImportMetaEnv {
   readonly VITE_MTPROTO_HAS_HTTP: string;
   readonly VITE_MTPROTO_HAS_WS: string;
   readonly VITE_SAFARI_PROXY_WEBSOCKET: string;
+  // Bridge mode: where the backend (accounts endpoint + relay WebSocket) lives, e.g.
+  // http://localhost:3000. Empty/absent means same origin as the page (through nginx or a tunnel).
+  readonly VITE_BRIDGE_ORIGIN?: string;
   // injected via `define` by vite.preview.config.ts; absent in every other build
   readonly VITE_PREVIEW?: boolean;
   // injected via `define` by vite.preview.config.ts when start-preview.sh is

@@ -62,7 +62,11 @@ export class SingleInstance extends EventListenerBase<{
 
     this.started = true;
     this.listenOtherClients();
+    rootScope.addEventListener('bridge_taken_over', () => this.onTakenOver(true));
     this.reset();
+    // * Bridge: a tab opened is a new claim on the account, even in a shared worker that outlived a
+    // * tab another browser took the account from
+    rootScope.managers.all.networkerFactory.startAll();
 
     idleController.addEventListener('change', this.checkInstance);
     apiManagerProxy.setInterval(this.checkInstance, CHECK_INSTANCE_INTERVAL);
@@ -80,10 +84,27 @@ export class SingleInstance extends EventListenerBase<{
       return;
     }
 
+    // * Bridge: one tab, in one browser, holds the account at a time — the one opened or clicked last.
+    // * Another tab of this app announcing itself takes it over here (the tabs share the worker, so the
+    // * network stays on), and the backend saying another browser has it takes the worker off the wire.
     const channel = this.interclientBroadcastChannel = new BroadcastChannel(App.interclientBroadcastChannel);
     channel.addEventListener('message', (event) => {
-      (event.data === App.suffix ? this.onMyClient : this.onOtherClient)();
+      if(event.data === App.suffix) {
+        this.onTakenOver(false);
+      } else {
+        this.onOtherClient();
+      }
     });
+  }
+
+  private onTakenOver(stopNetwork: boolean) {
+    if(stopNetwork) {
+      rootScope.managers.all.networkerFactory.stopAll();
+    }
+
+    this.masterInstance = false;
+    this.deactivateInstance('otherClient');
+    this.log.warn('account taken over', stopNetwork ? 'by another browser' : 'by another tab');
   }
 
   public onMyClient = () => {

@@ -46,7 +46,10 @@ const Modes = {
   // bound to the stored permanent one (auth.bindTempAuthKey), replaced once it
   // expires or the server forgets it. On by default; ?noPfs=1 turns it off (the
   // worker sees it too — makeWorkerURL forwards query params).
-  pfs: location.search.indexOf('noPfs=1') === -1,
+  // * Bridge mode routes every MTProto connection to our own backend instead of Telegram, so
+  // * temporary auth keys (bindTempAuthKey, the DH handshake the bridge would have to answer) are
+  // * off: the bridge talks to Telegram with the account's real permanent key.
+  pfs: false,
   // The keyboard and screen-reader layer: focus traps, roving tab stops, focus
   // rings, key routing, inert off-screen columns, pinch zoom. Off by default
   // until it settles; ?a11y=1 turns it on. ARIA names and roles stay either way,
@@ -60,20 +63,10 @@ const Modes = {
   memoryWatch: location.search.indexOf('memoryWatch=1') > 0
 };
 
-if(import.meta.env.VITE_MTPROTO_HAS_HTTP) {
-  const httpOnly = Modes.http = location.search.indexOf('http=1') > 0;
-  if(httpOnly) {
-    Modes.multipleTransports = false;
-  }
-}
-
-// * start with HTTP first
-if(Modes.multipleTransports) {
-  Modes.http = true;
-}
-
-if(Modes.http) {
-  Modes.transport = 'https';
-}
+// * Bridge mode: the backend exposes a single WebSocket endpoint, so the HTTP transport and the
+// * HTTP-first auto-switching are off — every connection is a plain websocket to the bridge.
+Modes.http = false;
+Modes.multipleTransports = false;
+Modes.transport = 'websocket';
 
 export default Modes;

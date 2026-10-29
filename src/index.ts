@@ -47,6 +47,7 @@ import MEDIA_MIME_TYPES_SUPPORTED from '@environment/mediaMimeTypesSupport';
 import {doubleRaf} from '@helpers/schedulers';
 import {getCurrentAccount} from '@lib/accounts/getCurrentAccount';
 import AccountController from '@lib/accounts/accountController';
+import syncBridgeAccounts from '@lib/bridge/syncAccounts';
 import {changeAccount} from '@lib/accounts/changeAccount';
 import {MAX_ACCOUNTS_FREE, MAX_ACCOUNTS_PREMIUM} from '@lib/accounts/constants';
 import sessionStorage from '@lib/sessionStorage';
@@ -477,6 +478,10 @@ if(import.meta.env.DEV) {
   // * (2) check app version
   // * (3) send all states if updated
   // * (4) exit if not updated
+
+  // * Bridge: seed the account slot from our backend before any state is read, so the worker's
+  // * loadState sees a signed-in account and boots straight into it.
+  await syncBridgeAccounts();
 
   // * (1)
   const allStates = await apiManagerProxy.loadAllStates();

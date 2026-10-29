@@ -97,7 +97,20 @@ const USE_DEV_HTTP2 = !USE_SSL && !process.env.TWEB_PREVIEW && !process.env.VITE
 
 const serverOptions: ServerOptions = {
   host,
-  port: USE_SSL ? 443 : 8080,
+  // * Bridge mode: the local nginx listens on :8000 and proxies / to the dev server here and
+  // * /api/ to the FastAPI backend, so the dev server sits on the port nginx forwards to. The
+  // * ngrok tunnel in front of nginx presents its own hostname, so accept it past the host check.
+  port: USE_SSL ? 443 : 5173,
+  allowedHosts: ['localhost', '.ngrok-free.dev'],
+  // * Bridge mode without nginx: open http://localhost:5173 directly and the dev server relays the
+  // * accounts endpoint and the relay WebSocket to the FastAPI backend, same origin, so no CORS.
+  // * Behind nginx /api/ never reaches here, so this stays harmless there.
+  proxy: {
+    '/api': {
+      target: 'http://localhost:3000',
+      ws: true
+    }
+  },
   fs: {
     allow: [...SERVER_FS_ALLOW],
     // Vite's defaults plus tmp/: it holds auth seeds and other credentials, and bundles that boot

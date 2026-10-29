@@ -3,6 +3,7 @@ import Modes from '@config/modes';
 import EventListenerBase from '@helpers/eventListenerBase';
 import {MTConnection} from '@lib/mtproto/transports/transport';
 import ctx from '@environment/ctx';
+import {BRIDGE_SUPERSEDED_CLOSE_CODE, dropBridgeConnect, holdBridgeConnect, onBridgeClientSuperseded, withBridgeClient} from '@lib/bridge/client';
 
 const TEST_NO_WEBSOCKET = false;
 
@@ -47,8 +48,13 @@ export default class Socket extends EventListenerBase<{
     this.clearConnectionTimeout();
   }
 
-  private connect() {
-    this.ws = new WebSocket(this.url, 'binary');
+  private connect = () => {
+    // * Bridge: once another browser has taken the account over, open nothing until a tab takes it back
+    if(holdBridgeConnect(this.connect)) {
+      return;
+    }
+
+    this.ws = new WebSocket(withBridgeClient(this.url), 'binary');
     this.ws.binaryType = 'arraybuffer';
     this.ws.addEventListener('open', this.handleOpen);
     this.ws.addEventListener('close', this.handleClose);
@@ -63,9 +69,10 @@ export default class Socket extends EventListenerBase<{
     // if(Date.now() >= closeSocketAfter) {
     //   this.ws.close();
     // }
-  }
+  };
 
   public close() {
+    dropBridgeConnect(this.connect);
     if(!this.ws) {
       return;
     }
@@ -100,6 +107,10 @@ export default class Socket extends EventListenerBase<{
 
   private handleClose = (e?: CloseEvent) => {
     this.log('closed', e/* , this.pending, this.ws.bufferedAmount */);
+
+    if(e?.code === BRIDGE_SUPERSEDED_CLOSE_CODE) {
+      onBridgeClientSuperseded();
+    }
 
     this.removeListeners();
     this.dispatchEvent('close');

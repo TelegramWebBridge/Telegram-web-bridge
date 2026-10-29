@@ -7,7 +7,6 @@
 
 import MTTransport, {MTConnectionConstructable} from '@lib/mtproto/transports/transport';
 import Modes from '@config/modes';
-import App from '@config/app';
 import indexOfAndSplice from '@helpers/array/indexOfAndSplice';
 import HTTP from '@lib/mtproto/transports/http';
 import Socket from '@lib/mtproto/transports/websocket';
@@ -16,6 +15,7 @@ import {IS_WEB_WORKER} from '@helpers/context';
 import {DcId} from '@types';
 import {getEnvironment} from '@environment/utils';
 import SocketProxied from '@lib/mtproto/transports/socketProxied';
+import {bridgeWsUrl} from '@lib/bridge/endpoint';
 
 export type TransportType = 'websocket' | 'https' | 'http';
 export type ConnectionType = 'client' | 'download' | 'upload';
@@ -28,7 +28,6 @@ type Servers = {
 };
 
 const TEST_SUFFIX = Modes.test ? '_test' : '';
-const PREMIUM_SUFFIX = '_premium';
 const RETRY_TIMEOUT_CLIENT = 3000;
 const RETRY_TIMEOUT_DOWNLOAD = 3000;
 
@@ -55,11 +54,11 @@ export function constructTelegramWebSocketUrl(_dcId: DcId, connectionType: Conne
   }
 
   const dcId = assertValidDcId(_dcId);
-  const suffix = getTelegramConnectionSuffix(connectionType);
-  const path = connectionType !== 'client' ? 'apiws' + TEST_SUFFIX + (premium ? PREMIUM_SUFFIX : '') : ('apiws' + TEST_SUFFIX);
-  const chosenServer = `wss://${App.suffix.toLowerCase()}ws${dcId}${suffix}.web.telegram.org/${path}`;
 
-  return chosenServer;
+  // * Bridge mode: every connection goes to our own backend (VITE_BRIDGE_ORIGIN, or same origin as
+  // * the app through nginx / a tunnel). The dcId and connectionType are carried in the path so the
+  // * bridge knows which Telegram DC to relay to, and whether it is a file connection.
+  return bridgeWsUrl(`/api/bridge/ws/${dcId}/${connectionType}`);
 }
 
 export class DcConfigurator {
