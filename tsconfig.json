@@ -101,13 +101,14 @@
     "watchFile": "useFsEvents",
     "watchDirectory": "useFsEvents",
     "fallbackPolling": "dynamicPriority",
-    "excludeDirectories": ["**/node_modules", "**/.claude", "dist", "public", "coverage", "tmp"]
+    "excludeDirectories": ["**/node_modules", "**/.claude", "dist", "deploy", "public", "coverage", "tmp"]
   },
   "exclude": [
     "node_modules",
     ".claude",
     "public",
     "dist",
+    "deploy",
     "coverage",
     /* Scratch + build artefacts, all gitignored — start-preview.sh --static
        builds into tmp/preview-dist. They have to stay out of the program:

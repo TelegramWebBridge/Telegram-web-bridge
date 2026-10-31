@@ -109,7 +109,25 @@ rsync -avz --delete --exclude '*.map' deploy/ user@server:/var/www/tg/
 
 #### 4. nginx
 
-`/etc/nginx/sites-available/tg.example.com`:
+Сначала сертификат (HTTPS обязателен: без него нет wss, SW и крипто-API). Полный конфиг ниже ссылается
+на файлы сертификата, и пока их нет, `nginx -t` (а с ним и `certbot --nginx`) падает. Поэтому на первом шаге
+в `/etc/nginx/sites-available/tg.example.com` кладём временный конфиг только на :80:
+
+```nginx
+server {
+    listen 80;
+    server_name tg.example.com;
+    root /var/www/tg;
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/tg.example.com /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot certonly --nginx -d tg.example.com   # только выпустить, конфиг не трогать
+```
+
+Затем заменяем содержимое файла полным конфигом:
 
 ```nginx
 server {
@@ -119,7 +137,8 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
+    listen 443 ssl;
+    http2 on;            # nginx ≥ 1.25.1; на более старом — убрать строку и писать `listen 443 ssl http2;`
     server_name tg.example.com;
 
     ssl_certificate     /etc/letsencrypt/live/tg.example.com/fullchain.pem;
@@ -152,8 +171,8 @@ server {
         client_max_body_size 0;
     }
 
-    # файлы с хешем в имени неизменяемы
-    location ~* -[A-Za-z0-9_-]{8}\.(js|css|map|woff2?|wasm)$ {
+    # файлы с хешем в имени неизменяемы (регулярка в кавычках: иначе nginx примет `{8}` за блок)
+    location ~* "-[A-Za-z0-9_-]{8}\.(js|css|map|woff2?|wasm)$" {
         add_header Cache-Control "public, max-age=31536000, immutable";
         try_files $uri =404;
     }
@@ -166,7 +185,9 @@ server {
 }
 ```
 
-`$connection_upgrade` нужно объявить один раз в `http {}` (например, в `/etc/nginx/conf.d/ws.conf`):
+`$connection_upgrade` нужно объявить один раз на уровне `http {}`. Проще всего положить файл
+`/etc/nginx/conf.d/ws.conf`: `nginx.conf` подключает `conf.d/*.conf` уже внутри `http {}`, поэтому в файле
+только сам `map`, без обёртки `http {}`:
 
 ```nginx
 map $http_upgrade $connection_upgrade {
@@ -175,18 +196,24 @@ map $http_upgrade $connection_upgrade {
 }
 ```
 
-Включить и проверить:
+Проверить и применить:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/tg.example.com /etc/nginx/sites-enabled/
-sudo certbot --nginx -d tg.example.com     # сертификат (HTTPS обязателен: без него нет wss, SW и крипто-API)
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+Продление сертификата certbot делает сам по таймеру (`systemctl list-timers | grep certbot`).
+
+Предупреждение `protocol options redefined for 0.0.0.0:443` при `nginx -t` не ошибка: у другого сайта на
+том же сервере `listen 443` записан с другими опциями (например, `listen 443 ssl http2;` против
+`listen 443 ssl;`). Чтобы оно исчезло, опции `listen 443` у всех сайтов должны совпадать. HTTP/2 на
+nginx ≥ 1.25.1 включается директивой `http2 on;`: она действует на сайт и в `listen` не попадает, так что
+с ней строки `listen` у сайтов совпадают сами собой.
 
 #### 5. Быстрый цикл ручного обновления
 
 ```bash
-pnpm build
+pnpm build:prod
 rm -rf deploy && mkdir deploy && cp -r public/. deploy/ && cp -r dist/. deploy/
 rsync -avz --delete --exclude '*.map' deploy/ user@server:/var/www/tg/
 ```

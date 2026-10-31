@@ -2,6 +2,7 @@ node_modules
 coverage
 __pycache__
 /dist
+/deploy
 **/.DS_Store
 stats.json
 certs
@@ -16,6 +17,7 @@ ssh.json
 archive.zip
 .idea
 .env.local
+.env.*.local
 src/langPackLocalVersion.ts
 /.ai
 tmp
