@@ -479,6 +479,7 @@ export const SETTINGS_INIT: StateSettings = {
     _: 'autoDownloadSettings',
     file_size_max: 3145728,
     pFlags: {
+      disabled: true,
       video_preload_large: true,
       audio_preload_next: true
     },

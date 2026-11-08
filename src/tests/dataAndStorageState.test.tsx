@@ -164,6 +164,7 @@ describe('DataAndStorage automatic download state', () => {
   });
 
   it('uses appSettings as the single source for the toggle and dependent rows', () => {
+    mocks.setAppSettings('autoDownloadNew', 'pFlags', 'disabled', undefined);
     dispose = render(() => <DataAndStorage />, container);
 
     const input = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
