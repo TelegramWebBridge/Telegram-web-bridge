@@ -1,82 +1,102 @@
 import AccountController from '@lib/accounts/accountController';
-import {AccountSessionData} from '@lib/accounts/types';
-import {DcAuthKey, TrueDcId} from '@types';
-import tsNow from '@helpers/tsNow';
-import {bridgeHttpBase} from '@lib/bridge/endpoint';
+import apiManagerProxy from '@lib/apiManagerProxy';
+import {
+  clearOtherSlots,
+  fetchBridgeAccounts,
+  findBridgeAccount,
+  getBridgeAccountsPool,
+  getBridgeToken,
+  getSelectedBridgeAccount,
+  isBridgeAccountInSlot,
+  putBridgeAccountIntoSlot,
+  setBridgeToken,
+  setSelectedBridgeAccount
+} from '@lib/bridge/accounts';
+import {BRIDGE_ACCOUNT_QUERY_PARAM, BRIDGE_TOKEN_QUERY_PARAM} from '@lib/bridge/constants';
 
-const TOKEN_STORAGE_KEY = 'bridge_token';
-
-type BridgeAccount = {
-  id: number,
-  username: string | null,
-  name: string,
-  dcId: TrueDcId,
-  authKeys: Record<string, string>
-};
-
-function readToken(): string | undefined {
-  const params = new URLSearchParams(location.search);
-  const fromUrl = params.get('bridgeToken');
-  if(fromUrl) {
-    try {
-      localStorage.setItem(TOKEN_STORAGE_KEY, fromUrl);
-    } catch{}
-    return fromUrl;
+/**
+ * `?bridgeToken=` and `?bridgeAccount=` are read once and leave the address: kept, they would pick the
+ * same account again on every reload, and put the token in sight
+ */
+function takeQueryParams() {
+  const url = new URL(location.href);
+  const token = url.searchParams.get(BRIDGE_TOKEN_QUERY_PARAM);
+  const accountId = url.searchParams.get(BRIDGE_ACCOUNT_QUERY_PARAM);
+  if(token === null && accountId === null) {
+    return;
   }
 
-  try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY) || undefined;
-  } catch{
-    return undefined;
-  }
-}
+  token && setBridgeToken(token);
+  accountId && setSelectedBridgeAccount(+accountId);
 
-function toSessionData(account: BridgeAccount): AccountSessionData {
-  const data: AccountSessionData = {
-    userId: account.id as PeerId,
-    dcId: account.dcId,
-    date: tsNow(true)
-  };
-
-  for(const dc in account.authKeys) {
-    data[`dc${dc}_auth_key` as DcAuthKey] = account.authKeys[dc];
-  }
-
-  return data;
+  url.searchParams.delete(BRIDGE_TOKEN_QUERY_PARAM);
+  url.searchParams.delete(BRIDGE_ACCOUNT_QUERY_PARAM);
+  history.replaceState(history.state, '', url);
 }
 
 /**
- * Pulls the account list from our backend and writes the chosen one into slot 1, so tweb boots
- * straight into it with no login. The real auth keys never reach the browser — these are the
- * backend's per-account fake keys (see app/bridge in the FastAPI project). One account for now;
- * the multi-slot picker is the next step.
+ * Pulls the account pool from our backend and puts the chosen account into slot 1, so tweb boots
+ * straight into it with no login. The real auth keys never reach the browser - these are the
+ * backend's per-account fake keys (see app/bridge in the FastAPI project). The chosen one is the
+ * account picked last in this browser (src/lib/bridge/accounts.ts), else the one in slot 1, else the
+ * first of the pool. Without an answer from the backend slot 1 stays as it is.
  */
 export default async function syncBridgeAccounts() {
-  const token = readToken();
+  takeQueryParams();
+
+  const token = getBridgeToken();
   if(!token) {
     return;
   }
 
-  let accounts: BridgeAccount[];
-  try {
-    const res = await fetch(bridgeHttpBase() + '/api/bridge/accounts', {headers: {'X-Bridge-Token': token}});
-    if(!res.ok) {
-      console.error('[bridge] accounts fetch failed', res.status);
-      return;
-    }
-
-    accounts = (await res.json()).accounts;
-  } catch(err) {
-    console.error('[bridge] accounts fetch error', err);
-    return;
-  }
-
+  const [accounts, slot] = await Promise.all([
+    fetchBridgeAccounts(token),
+    AccountController.get(1)
+  ]);
   if(!accounts?.length) {
     return;
   }
 
-  const wantedId = new URLSearchParams(location.search).get('bridgeAccount');
-  const account = accounts.find((a) => String(a.id) === wantedId) || accounts[0];
+  const account = findBridgeAccount(accounts, getSelectedBridgeAccount()) ||
+    findBridgeAccount(accounts, slot.userId) ||
+    accounts[0];
 
-  await AccountController.update(1, toSessionData(account), true);
+  if(isBridgeAccountInSlot(slot, account)) {
+    setSelectedBridgeAccount(account.id);
+    await clearOtherSlots();
+    return;
+  }
+
+  await putBridgeAccountIntoSlot(account);
+
+  // * another account was signed in: a worker another tab keeps may already hold it, so it goes and
+  // * every tab loads again into this one. A switch from the menu has put its account in before the
+  // * reload, so it does not come here
+  if(slot.userId) {
+    reloadIntoBridgeAccount();
+    await new Promise<never>(() => {});
+  }
+}
+
+/**
+ * The worker goes with its sockets, and every tab of the app loads again into the account in slot 1.
+ * This tab's address loses the chat of the previous account.
+ */
+export function reloadIntoBridgeAccount() {
+  const url = new URL(location.href);
+  url.hash = '';
+  apiManagerProxy.reloadAllTabs(url);
+}
+
+/**
+ * Shows `id` of the pool instead of the account shown now - the account menu's pick.
+ */
+export async function switchBridgeAccount(id: UserId) {
+  const account = findBridgeAccount(getBridgeAccountsPool(), id);
+  if(!account) {
+    return;
+  }
+
+  await putBridgeAccountIntoSlot(account);
+  reloadIntoBridgeAccount();
 }

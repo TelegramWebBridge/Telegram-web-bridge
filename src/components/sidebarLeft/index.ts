@@ -83,6 +83,8 @@ import pause from '@helpers/schedulers/pause';
 import showAccountsLimitPopup from '@components/sidebarLeft/accountsLimitPopup';
 import {changeAccount} from '@lib/accounts/changeAccount';
 import switchAccount from '@lib/accounts/switchAccount';
+import {findBridgeAccount, getBridgeAccountsPool} from '@lib/bridge/accounts';
+import {switchBridgeAccount} from '@lib/bridge/syncAccounts';
 import {hasCallInTab} from '@lib/calls/callAccount';
 import uiNotificationsManager from '@lib/uiNotificationsManager';
 import {renderFoldersSidebarContent} from '@components/sidebarLeft/foldersSidebarContent';
@@ -753,6 +755,11 @@ export class AppSidebarLeft extends SidebarSlider {
       text: 'MultiAccount.AddAccount',
       onClick: this.addAccount,
       verify: async() => {
+        // * Bridge: accounts come from the backend only, a sign-in cannot go through the bridge
+        if(getBridgeAccountsPool().length) {
+          return false;
+        }
+
         const totalAccounts = await AccountController.getTotalAccounts();
         return totalAccounts < MAX_ACCOUNTS;
       }
@@ -860,23 +867,53 @@ export class AppSidebarLeft extends SidebarSlider {
           uiNotificationsManager.getNotificationsCountForAllAccounts()
         ]);
         const accountButtons: typeof buttons = [];
-        for(let i = 1; i <= totalAccounts; i++) {
+        const pushCurrentAccountButton = async() => {
+          const user = await managers.appUsersManager.getSelf();
+          accountButtons.push({
+            avatarInfo: {
+              accountNumber: getCurrentAccount(),
+              peerId: rootScope.myId.toPeerId(),
+              active: true
+            },
+            regularText: wrapUserName(user),
+            onClick: () => {
+              closeTabsBefore(() => {
+                this.createTab(AppSettingsTab).open();
+              });
+            }
+          });
+        };
+
+        // * Bridge: the accounts listed are the backend's pool rather than the slots - tweb is signed in
+        // * to the one shown alone, the others are names until picked (src/lib/bridge/accounts.ts)
+        const bridgeAccounts = getBridgeAccountsPool();
+        const slotsListed = bridgeAccounts.length ? 0 : totalAccounts;
+        if(bridgeAccounts.length && !findBridgeAccount(bridgeAccounts, rootScope.myId)) {
+          await pushCurrentAccountButton();
+        }
+
+        for(const account of bridgeAccounts) {
+          if(String(account.id) === String(rootScope.myId)) {
+            await pushCurrentAccountButton();
+            continue;
+          }
+
+          accountButtons.push({
+            // * initials only: the photo would have to come through the account's own connection
+            avatarInfo: {
+              peerTitle: account.name,
+              peerTitleColorId: account.id.toPeerId()
+            },
+            className: 'btn-menu-account-item',
+            regularText: wrapEmojiText(limitSymbols(account.name, 15, 18)),
+            onClick: () => switchBridgeAccount(account.id)
+          });
+        }
+
+        for(let i = 1; i <= slotsListed; i++) {
           const accountNumber = i as ActiveAccountNumber;
           if(accountNumber === getCurrentAccount()) {
-            const user = await managers.appUsersManager.getSelf();
-            accountButtons.push({
-              avatarInfo: {
-                accountNumber: getCurrentAccount(),
-                peerId: rootScope.myId.toPeerId(),
-                active: true
-              },
-              regularText: wrapUserName(user),
-              onClick: () => {
-                closeTabsBefore(() => {
-                  this.createTab(AppSettingsTab).open();
-                });
-              }
-            });
+            await pushCurrentAccountButton();
           } else {
             const otherManagers = createProxiedManagersForAccount(accountNumber);
             const accountData = await AccountController.get(accountNumber);

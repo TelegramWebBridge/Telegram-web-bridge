@@ -1,5 +1,14 @@
 import {CURRENT_ACCOUNT_QUERY_PARAM} from '@lib/accounts/constants';
 import {THREADED_WORKER_PROTOCOL_QUERY_PARAM} from '@lib/threadedWorkerTypes';
+import {BRIDGE_ACCOUNT_QUERY_PARAM, BRIDGE_TOKEN_QUERY_PARAM} from '@lib/bridge/constants';
+
+// * the page's own parameters: forwarded, a tab opened with one would get a worker of its own
+const NOT_FORWARDED_PARAMS = new Set([
+  CURRENT_ACCOUNT_QUERY_PARAM,
+  THREADED_WORKER_PROTOCOL_QUERY_PARAM,
+  BRIDGE_TOKEN_QUERY_PARAM,
+  BRIDGE_ACCOUNT_QUERY_PARAM
+]);
 
 export function makeWorkerURL(url: string | URL) {
   if(!(url instanceof URL)) {
@@ -9,7 +18,7 @@ export function makeWorkerURL(url: string | URL) {
   if(location.search && url.protocol !== 'blob:') {
     const params = new URLSearchParams(location.search);
     params.forEach((value, key) => {
-      if(key === CURRENT_ACCOUNT_QUERY_PARAM || key === THREADED_WORKER_PROTOCOL_QUERY_PARAM) return;
+      if(NOT_FORWARDED_PARAMS.has(key)) return;
       (url as URL).searchParams.set(key, value);
     });
   }

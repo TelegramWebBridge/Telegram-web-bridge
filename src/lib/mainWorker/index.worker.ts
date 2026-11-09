@@ -32,6 +32,7 @@ import {createBroadcastChannelWrapper} from '@lib/broadcastChannelWrapper';
 import {MainBroadcastChannelEvents, unversionedMainBroadcastChannelName} from '@config/broadcastChannel';
 import objectUrlRegistry from '@lib/mainWorker/objectUrlRegistry';
 import SharedObjectUrlCache, {getSharedObjectURLCacheStats, resetSharedObjectURLCaches} from '@lib/mainWorker/sharedObjectUrlCache';
+import {setBridgeDatabaseUser} from '@lib/bridge/accountDatabase';
 
 
 const log = logger('MTPROTO');
@@ -156,6 +157,11 @@ port.addMultipleEventsListeners({
     // }
 
     log('got state', accountNumber, state, pushedKeys);
+
+    // * Bridge: slot 1's storages open under the name of the account in it
+    if(accountNumber === 1) {
+      setBridgeDatabaseUser(userId);
+    }
 
     const appStateManager = appManagersManager.stateManagersByAccount[accountNumber];
     appStateManager.userId = userId;

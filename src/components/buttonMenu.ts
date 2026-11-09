@@ -28,6 +28,9 @@ type AvatarInfo = {
   accountNumber?: ActiveAccountNumber,
   peerId?: PeerId,
   peer?: Chat.channel | Chat.chat | User.user,
+  // * initials of a name instead of a peer's photo (see AvatarNew)
+  peerTitle?: string,
+  peerTitleColorId?: PeerId,
   active?: boolean
 };
 

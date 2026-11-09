@@ -19,6 +19,7 @@ import {IDB} from '@lib/files/idb';
 import createStorages from '@appManagers/utils/storages/createStorages';
 import isObject from '@helpers/object/isObject';
 import AppStorage from '@lib/storage';
+import {setBridgeDatabaseUser} from '@lib/bridge/accountDatabase';
 
 export type LoadStateResult = {
   state: State,
@@ -480,6 +481,9 @@ async function loadStateForAllAccounts() {
     }));
     await commonStateStorage.clear();
   }
+
+  // * Bridge: slot 1's storages are named after the account in it, so that is known before any opens
+  setBridgeDatabaseUser((await AccountController.get(1)).userId);
 
   const perf = performance.now();
   const hasMultiAccount = await checkIfHasMultiAccount() && !TEST_MULTI_MIGRATION;

@@ -15,6 +15,12 @@ export type StoragesResults = Awaited<ReturnType<typeof loadStorages>>;
  * In case of migration, will refetch the storages, because storages were modified
  */
 export default async function loadStorages(accountNumber: number, storages: StoragesStorages, resetStoragesPromise: ResetStoragesPromise, refetching?: boolean) {
+  // * Bridge: slot 1's database is named after the account in it, which the worker learns from the
+  // * state (src/lib/bridge/accountDatabase.ts): opened earlier, it would be the slot's shared one
+  if(accountNumber === 1) {
+    await resetStoragesPromise;
+  }
+
   const recordPromise = recordPromiseBound(logger('STORAGES-LOADER-' + accountNumber));
   const storagesKeys = Object.keys(storages) as Array<keyof StoragesStorages>;
   const storagesPromises: Promise<any>[] = storagesKeys.map((key) => {

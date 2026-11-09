@@ -9,11 +9,21 @@ FastAPI-бэкенд (MTProto-мост). Что изменено относит�
 
 | Файл | Что |
 |---|---|
-| `src/lib/bridge/` | `endpoint.ts` (адрес бэка), `syncAccounts.ts` (забирает аккаунты и подсовывает fake-ключи), `client.ts` (один клиент на аккаунт) |
+| `src/lib/bridge/` | `endpoint.ts` (адрес бэка), `accounts.ts` (пул аккаунтов с бэка и выбранный), `syncAccounts.ts` (кладёт выбранный аккаунт с fake-ключами в слот 1, переключение из меню), `accountDatabase.ts` (IndexedDB слота 1 по аккаунту), `client.ts` (один клиент на аккаунт) |
 | `src/lib/mtproto/dcConfigurator.ts` | WebSocket URL ведёт на `/api/bridge/ws/<dc>/<type>` вместо `*.web.telegram.org` |
 | `src/config/modes.ts` | PFS выключен, только WebSocket, без HTTP-транспорта |
 | `src/index.ts` | вызов `syncBridgeAccounts()` до чтения стейта |
+| `src/config/databases/state.ts`, `src/lib/appManagers/utils/state/loadState.ts`, `src/lib/mainWorker/index.worker.ts` | база слота 1 называется `tweb-bridge-<userId>`, имя узнаётся до её открытия |
+| `src/components/sidebarLeft/index.ts`, `src/components/buttonMenu.ts` | меню аккаунтов показывает пул бэка (без лимита), фоновые — с инициалами и без соединения; «Добавить аккаунт» скрыт |
+| `src/lib/apiManagerProxy.ts` | `reloadAllTabs(url)` — то, что делал `lock()`: воркер уходит, все вкладки перезагружаются |
+| `src/helpers/setWorkerProxy.ts` | `bridgeToken` / `bridgeAccount` не передаются в URL воркера |
 | `src/env.d.ts`, `vite.config.ts` | `VITE_BRIDGE_ORIGIN`, dev-порт 5173 и прокси `/api` → `localhost:3000` |
+
+Мультиаккаунт: tweb всегда вошёл ровно в один аккаунт (слот 1), поэтому к мосту идёт одно соединение — на
+активный аккаунт. Остальные аккаунты пула — строки нативного меню аккаунтов; выбор кладёт аккаунт в слот 1
+и перезагружает все вкладки в него, у каждого аккаунта своя IndexedDB, так что кэш сохраняется.
+`?bridgeAccount=<user_id>` выбирает аккаунт по ссылке; оба параметра (`bridgeToken`, `bridgeAccount`)
+запоминаются и убираются из адреса.
 
 ### Обновление форка с upstream
 

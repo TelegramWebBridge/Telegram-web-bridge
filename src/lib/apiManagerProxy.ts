@@ -1531,9 +1531,16 @@ class ApiManagerProxy extends MTProtoMessagePort {
   }
 
   public lock() {
+    this.reloadAllTabs();
+  }
+
+  /**
+   * The worker goes, and every tab of the app loads again - this one at `url`, when given
+   */
+  public reloadAllTabs(url?: URL) {
     this.invokeVoid('terminate', undefined);
     this.mainBroadcastChannel.emitVoid('reload');
-    appNavigationController.reload();
+    appNavigationController.reload(url);
   }
 
   public async clearCacheStoragesByNames(names: CacheStorageDbName[]) {

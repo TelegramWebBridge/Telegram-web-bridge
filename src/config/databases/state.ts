@@ -1,6 +1,7 @@
 import type {Database} from '.';
 import {ActiveAccountNumber} from '@lib/accounts/types';
 import {MOUNT_CLASS_TO} from '@config/debug';
+import {getBridgeDatabaseName} from '@lib/bridge/accountDatabase';
 
 export type AccountDatabase = Database<'session' | 'stickerSets' | 'users' | 'chats' | 'messages' | 'dialogs' | 'webapp'>;
 export type CommonDatabase = Database<'session' | 'localStorage'>;
@@ -47,7 +48,11 @@ export const getCommonDatabaseState = (): CommonDatabase => ({
 export const getDatabaseState = (
   accountNumber: ActiveAccountNumber
 ): Database<'session' | 'stickerSets' | 'users' | 'chats' | 'messages' | 'dialogs' | 'webapp'> => ({
-  name: `tweb-account-${accountNumber}`,
+  // * Bridge: slot 1's database belongs to the account in it (src/lib/bridge/accountDatabase.ts) - read
+  // * when the database opens, since the managers make their storages before they learn the account
+  get name() {
+    return getBridgeDatabaseName(accountNumber) ?? `tweb-account-${accountNumber}`;
+  },
   version: 9,
   stores: [
     {
